@@ -169,7 +169,14 @@
   .view-top-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex:1; }
   .view-top-unreported { min-width:200px; max-width:320px; }
 
-  /* ══ 填寫回報 全螢幕覆蓋層 ══ */
+  /* ══ 全螢幕覆蓋層共用追加樣式 ══ */
+  .rfs-unreported { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:10px 16px; background:rgba(217,119,6,.08); border-bottom:1px solid rgba(217,119,6,.2); flex-shrink:0; }
+  .rfs-unreported-ok { background:rgba(22,163,74,.08); border-bottom:1px solid rgba(22,163,74,.2); color:#15803d; font-weight:600; font-size:14px; }
+  .rfs-unreported-title { font-size:13px; font-weight:700; color:var(--warn); white-space:nowrap; }
+  .rfs-totals { display:flex; flex-wrap:wrap; gap:0; border-bottom:2px solid var(--border); flex-shrink:0; background:var(--bg2); }
+  .rfs-total-item { display:flex; flex-direction:column; align-items:center; padding:8px 16px; border-right:1px solid var(--border); min-width:90px; }
+  .rfs-total-label { font-size:12px; color:var(--text2); }
+  .rfs-total-num { font-size:22px; font-weight:800; color:var(--cyan); }
   .report-fullscreen {
     position: fixed;
     inset: 0;
@@ -258,24 +265,36 @@
   <!-- Login -->
   <div v-if="!currentRole" class="login-screen">
     <button class="admin-corner-btn" @click="showAdminModal=true">管理者</button>
+
+    <!-- 管理者登入 Modal -->
     <div v-if="showAdminModal" class="admin-overlay" @click.self="closeAdminModal">
       <div class="admin-modal">
         <button class="modal-close" @click="closeAdminModal">✕</button>
         <h3>🛠 管理者登入</h3>
-        <div class="login-pw-row">
-          <input type="password" placeholder="請輸入密碼" v-model="loginPw" @keydown.enter="doLogin('A')" style="width:190px" autofocus />
-          <button class="btn btn-primary" @click="doLogin('A')" :disabled="loginLoading">{{ loginLoading?'...':'登入' }}</button>
-        </div>
+          <div style="display:flex;flex-direction:column;gap:10px;width:100%">
+            <input type="text" placeholder="帳號" v-model="loginUser"
+              @keydown.enter="doLogin('A')" style="width:100%" />
+            <input type="password" placeholder="密碼" v-model="loginPw"
+              @keydown.enter="doLogin('A')" style="width:100%" />
+            <button class="btn btn-primary" @click="doLogin('A')" :disabled="loginLoading" style="width:100%">
+              {{ loginLoading?'登入中...':'登入' }}
+            </button>
+          </div>
         <div v-if="loginError" class="login-error">{{ loginError }}</div>
       </div>
     </div>
+
+    <!-- 填報者：中央大按鈕 -->
     <div class="login-center">
       <button class="login-main-btn" @click="showReporterPw=!showReporterPw">回報</button>
       <div v-if="showReporterPw" class="login-pw-box">
         <div class="pw-label">請輸入密碼</div>
         <div class="login-pw-row">
-          <input type="password" placeholder="填報密碼" v-model="loginPw" @keydown.enter="doLogin('B')" style="width:190px" autofocus />
-          <button class="btn btn-primary" @click="doLogin('B')" :disabled="loginLoading">{{ loginLoading?'...':'進入' }}</button>
+          <input type="password" placeholder="填報密碼" v-model="loginPw"
+            @keydown.enter="doLogin('B')" style="width:190px" autofocus />
+          <button class="btn btn-primary" @click="doLogin('B')" :disabled="loginLoading">
+            {{ loginLoading?'...':'進入' }}
+          </button>
         </div>
         <div v-if="loginError" class="login-error">{{ loginError }}</div>
       </div>
@@ -315,26 +334,6 @@
             </select>
             <button class="btn btn-primary" @click="saveActiveYearMonth">儲存年月設定</button>
             <div v-if="activeYM" class="ym-display">目前設定：{{ activeYM.year }} 年 {{ months[activeYM.month-1] }}</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">🔑 密碼管理</div>
-          <div class="grid2">
-            <div>
-              <div class="section-label">管理者密碼</div>
-              <div class="row row-center">
-                <input type="password" v-model="newPwAdmin" placeholder="輸入新密碼" style="flex:1" />
-                <button class="btn btn-primary" @click="savePassword('admin')">儲存</button>
-              </div>
-            </div>
-            <div>
-              <div class="section-label">填報密碼</div>
-              <div class="row row-center">
-                <input type="password" v-model="newPwReporter" placeholder="輸入新密碼" style="flex:1" />
-                <button class="btn btn-primary" @click="savePassword('reporter')">儲存</button>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -530,75 +529,98 @@
         </div>
       </div>
 
-      <!-- ══ 總覽 ══ -->
+      <!-- ══ 總覽：選擇卡片 ══ -->
       <div v-if="tab==='view'">
         <div class="card">
           <div class="card-title">📊 回報總覽</div>
-          <div class="view-top">
-            <div class="view-top-controls">
-              <div v-if="activeYM" class="ym-display">📅 {{ activeYM.year }} 年 {{ months[activeYM.month-1] }}</div>
-              <div v-else style="color:var(--danger);font-size:14px">⚠️ 管理者尚未設定回報年月</div>
-              <select v-model="viewFilterTeam" @change="viewFilterGroup=''" style="max-width:180px">
-                <option value="">所有隊別</option>
-                <option v-for="t in sortedTeams" :key="t.id" :value="t.id">{{ t.name }}</option>
-              </select>
-              <select v-model="viewFilterGroup" style="max-width:180px">
-                <option value="">所有組別</option>
-                <option v-for="g in groupsOfTeam(viewFilterTeam)" :key="g.id" :value="g.id">{{ g.name }}</option>
-              </select>
-              <button class="btn btn-primary" @click="loadViewData" :disabled="!activeYM">載入瀏覽</button>
-              <button class="btn btn-secondary" @click="exportView" :disabled="filteredViewReports.length===0">📥 匯出 Excel</button>
-            </div>
-            <div class="view-top-unreported" v-if="viewLoaded && unreportedList.length>0">
-              <div class="unreported-box">
-                <div class="unreported-title">⚠️ 尚未回報</div>
-                <div class="unreported-tags">
-                  <span v-for="item in unreportedList" :key="item.key" class="unreported-tag">{{ item.label }}</span>
-                </div>
-              </div>
-            </div>
-            <div class="view-top-unreported" v-else-if="viewLoaded && unreportedList.length===0">
-              <div class="unreported-box" style="border-color:rgba(76,175,80,.3);background:rgba(76,175,80,.08)">
-                <div class="unreported-title" style="color:#81c784">✅ 所有組別已回報</div>
-              </div>
-            </div>
+          <div class="row row-center" style="margin-bottom:12px">
+            <div v-if="activeYM" class="ym-display">📅 {{ activeYM.year }} 年 {{ months[activeYM.month-1] }}</div>
+            <div v-else style="color:var(--danger);font-size:15px;font-weight:600">⚠️ 管理者尚未設定回報年月</div>
           </div>
-
-          <div v-if="viewLoading" class="loading">載入中...</div>
-          <div v-else-if="!viewLoaded" class="empty">請點「載入瀏覽」</div>
-          <div v-else-if="filteredViewReports.length===0" class="empty">查無資料</div>
-          <div v-else class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>隊別</th><th>組別</th><th>姓名</th>
-                  <th v-for="f in sortedFields" :key="f.id">
-                    {{ f.name }}
-                    <!-- ★ 紫色合計顯示在欄位標題下方 ★ -->
-                    <div v-if="isNum(f)" class="th-total-wrap">
-                      <span class="th-total-num">{{ calcTotal(filteredViewReports, f.id) }}</span>
-                      <span class="th-total-label">合計</span>
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="r in filteredViewReports" :key="r.id">
-                  <td>{{ r.team_name }}</td><td>{{ r.group_name }}</td><td>{{ r.member_name }}</td>
-                  <td v-for="f in sortedFields" :key="f.id">{{ r.values?.[f.id]??'' }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="row row-center">
+            <select v-model="viewFilterTeam" @change="viewFilterGroup=''" style="flex:1;max-width:200px">
+              <option value="">所有隊別</option>
+              <option v-for="t in sortedTeams" :key="t.id" :value="t.id">{{ t.name }}</option>
+            </select>
+            <select v-model="viewFilterGroup" style="flex:1;max-width:200px">
+              <option value="">所有組別</option>
+              <option v-for="g in groupsOfTeam(viewFilterTeam)" :key="g.id" :value="g.id">{{ g.name }}</option>
+            </select>
+            <button class="btn btn-primary" @click="loadViewData" :disabled="!activeYM">載入瀏覽</button>
           </div>
+          <div class="empty" style="padding:16px;color:var(--text2)">選擇條件後按「載入瀏覽」查看資料</div>
         </div>
       </div>
 
-      <!-- ══ 歷史紀錄 ══ -->
+      <!-- ══ 總覽：全螢幕覆蓋層 ══ -->
+      <div v-if="tab==='view' && viewLoaded" class="report-fullscreen">
+        <!-- 頂部標題 -->
+        <div class="rfs-header">
+          <div class="rfs-title">
+            <span>📊 回報總覽</span>
+            <span class="rfs-ym">{{ activeYM ? activeYM.year+'年 '+months[activeYM.month-1] : '' }}</span>
+            <span class="rfs-ym">{{ viewFilterTeam ? teamName(viewFilterTeam) : '所有隊別' }} ｜ {{ viewFilterGroup ? groupName(viewFilterGroup) : '所有組別' }}</span>
+          </div>
+          <button class="rfs-close" @click="viewLoaded=false">✕ 關閉</button>
+        </div>
+
+        <!-- 尚未回報提示 -->
+        <div v-if="unreportedList.length>0" class="rfs-unreported">
+          <span class="rfs-unreported-title">⚠️ 尚未回報：</span>
+          <span v-for="item in unreportedList" :key="item.key" class="unreported-tag">{{ item.label }}</span>
+        </div>
+        <div v-else class="rfs-unreported rfs-unreported-ok">
+          ✅ 所有組別已回報
+        </div>
+
+        <!-- 數字欄位合計條 -->
+        <div v-if="intFields.length>0 && filteredViewReports.length>0" class="rfs-totals">
+          <span v-for="f in intFields" :key="f.id" class="rfs-total-item">
+            <span class="rfs-total-label">{{ f.name }}</span>
+            <span class="rfs-total-num">{{ calcTotal(filteredViewReports, f.id) }}</span>
+          </span>
+        </div>
+
+        <!-- 可捲動表格 -->
+        <div v-if="viewLoading" class="loading" style="padding:48px">載入中...</div>
+        <div v-else-if="filteredViewReports.length===0" class="empty" style="padding:48px">查無資料</div>
+        <div v-else class="rfs-body">
+          <table class="rfs-table">
+            <thead>
+              <tr>
+                <th class="rfs-th-name">姓名</th>
+                <th class="rfs-th-field">隊別／組別</th>
+                <th v-for="f in sortedFields" :key="f.id" class="rfs-th-field">
+                  {{ f.name }}
+                  <div v-if="isNum(f)" class="th-total-wrap">
+                    <span class="th-total-num">{{ calcTotal(filteredViewReports, f.id) }}</span>
+                    <span class="th-total-label">合計</span>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in filteredViewReports" :key="r.id">
+                <td class="rfs-td-name">{{ r.member_name }}</td>
+                <td class="rfs-td-field" style="white-space:nowrap;font-size:13px">{{ r.team_name }}<br><span style="color:var(--text2)">{{ r.group_name }}</span></td>
+                <td v-for="f in sortedFields" :key="f.id" class="rfs-td-field">{{ r.values?.[f.id]??'' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 固定底部 -->
+        <div class="rfs-footer">
+          <button class="btn btn-secondary rfs-save-btn" @click="exportView" :disabled="filteredViewReports.length===0">📥 匯出 Excel</button>
+        </div>
+      </div>
+
+      <!-- ══ 歷史紀錄：選擇卡片 ══ -->
       <div v-if="tab==='history'">
         <div class="card">
           <div class="card-title">📅 歷史紀錄查詢</div>
-          <div class="row row-center" style="margin-bottom:16px;flex-wrap:wrap;gap:8px">
-            <input v-model="histYear" type="text" placeholder="年份（空白=全部）" style="width:160px" />
+          <div class="row row-center" style="flex-wrap:wrap;gap:8px">
+            <input v-model="histYear" type="text" placeholder="年份（空白=全部）" style="width:150px" />
             <select v-model="histMonth" style="width:110px">
               <option value="">所有月份</option>
               <option v-for="(m,i) in months" :key="i+1" :value="i+1">{{ m }}</option>
@@ -612,47 +634,63 @@
               <option v-for="g in groupsOfTeam(histFilterTeam)" :key="g.id" :value="g.id">{{ g.name }}</option>
             </select>
             <button class="btn btn-primary" @click="loadHistory">查詢</button>
-            <button class="btn btn-secondary" @click="exportHistory" :disabled="histReports.length===0">📥 匯出 Excel</button>
           </div>
+          <div class="empty" style="padding:16px;color:var(--text2)">設定條件後按「查詢」</div>
+        </div>
+      </div>
 
-          <div v-if="histLoading" class="loading">載入中...</div>
-          <div v-else-if="histReports.length===0" class="empty">查無紀錄，請設定條件後點「查詢」</div>
-          <div v-else>
-            <!-- 查詢結果標題列 -->
-            <div class="report-table-header" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-              <span>📋 查詢結果：</span>
-              <span>{{ histYear ? histYear+'年' : '所有年份' }}</span>
-              <span>｜</span>
-              <span>{{ histMonth ? months[histMonth-1] : '所有月份' }}</span>
-              <span>｜</span>
-              <span>{{ histFilterTeam ? teamName(histFilterTeam) : '所有隊別' }}</span>
-              <span>｜</span>
-              <span>{{ histFilterGroup ? groupName(histFilterGroup) : '所有組別' }}</span>
-              <span style="margin-left:auto;font-size:14px;opacity:.85">共 {{ histReports.length }} 筆</span>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>隊別</th><th>組別</th><th>姓名</th>
-                    <th v-for="f in sortedFields" :key="f.id">
-                      {{ f.name }}
-                      <div v-if="isNum(f)" class="th-total-wrap">
-                        <span class="th-total-num">{{ calcTotal(histReports, f.id) }}</span>
-                        <span class="th-total-label">合計</span>
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="r in histReports" :key="r.id">
-                    <td>{{ r.team_name }}</td><td>{{ r.group_name }}</td><td>{{ r.member_name }}</td>
-                    <td v-for="f in sortedFields" :key="f.id">{{ r.values?.[f.id]??'' }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+      <!-- ══ 歷史紀錄：全螢幕覆蓋層 ══ -->
+      <div v-if="tab==='history' && histLoaded" class="report-fullscreen">
+        <!-- 頂部標題 -->
+        <div class="rfs-header">
+          <div class="rfs-title">
+            <span>📅 歷史紀錄</span>
+            <span class="rfs-ym">{{ histYear ? histYear+'年' : '所有年份' }} {{ histMonth ? months[histMonth-1] : '所有月份' }}</span>
+            <span class="rfs-ym">{{ histFilterTeam ? teamName(histFilterTeam) : '所有隊別' }} ｜ {{ histFilterGroup ? groupName(histFilterGroup) : '所有組別' }}</span>
           </div>
+          <button class="rfs-close" @click="histLoaded=false">✕ 關閉</button>
+        </div>
+
+        <!-- 數字欄位合計條 -->
+        <div v-if="intFields.length>0 && histReports.length>0" class="rfs-totals">
+          <span v-for="f in intFields" :key="f.id" class="rfs-total-item">
+            <span class="rfs-total-label">{{ f.name }}</span>
+            <span class="rfs-total-num">{{ calcTotal(histReports, f.id) }}</span>
+          </span>
+        </div>
+
+        <!-- 可捲動表格 -->
+        <div v-if="histLoading" class="loading" style="padding:48px">載入中...</div>
+        <div v-else-if="histReports.length===0" class="empty" style="padding:48px">查無紀錄</div>
+        <div v-else class="rfs-body">
+          <table class="rfs-table">
+            <thead>
+              <tr>
+                <th class="rfs-th-name">姓名</th>
+                <th class="rfs-th-field">隊別／組別</th>
+                <th v-for="f in sortedFields" :key="f.id" class="rfs-th-field">
+                  {{ f.name }}
+                  <div v-if="isNum(f)" class="th-total-wrap">
+                    <span class="th-total-num">{{ calcTotal(histReports, f.id) }}</span>
+                    <span class="th-total-label">合計</span>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in histReports" :key="r.id">
+                <td class="rfs-td-name">{{ r.member_name }}</td>
+                <td class="rfs-td-field" style="white-space:nowrap;font-size:13px">{{ r.team_name }}<br><span style="color:var(--text2)">{{ r.group_name }}</span></td>
+                <td v-for="f in sortedFields" :key="f.id" class="rfs-td-field">{{ r.values?.[f.id]??'' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 固定底部 -->
+        <div class="rfs-footer">
+          <span style="font-size:14px;color:var(--text2)">共 {{ histReports.length }} 筆</span>
+          <button class="btn btn-secondary rfs-save-btn" @click="exportHistory" :disabled="histReports.length===0">📥 匯出 Excel</button>
         </div>
       </div>
 
@@ -676,26 +714,58 @@ const { createApp, ref, computed, reactive } = Vue;
 createApp({
   setup() {
     // ── Auth ──
-    const currentRole=ref(null),loginPw=ref(''),loginError=ref(''),loginLoading=ref(false);
+    const currentRole=ref(null),loginPw=ref(''),loginUser=ref(''),loginError=ref(''),loginLoading=ref(false);
     const showAdminModal=ref(false),showReporterPw=ref(false);
-    function closeAdminModal(){ showAdminModal.value=false; loginPw.value=''; loginError.value=''; }
+    const REPORTER_EMAIL = 'user8@zd.77.local';
+    const DOMAIN = '@zd.77.local';
+
+    function closeAdminModal(){ showAdminModal.value=false; loginPw.value=''; loginUser.value=''; loginError.value=''; }
 
     async function doLogin(role){
-      if (!loginPw.value)return;
+      if (!loginPw.value){ loginError.value='請輸入密碼'; return; }
+      if (role==='A' && !loginUser.value){ loginError.value='請輸入帳號'; return; }
       loginLoading.value=true; loginError.value='';
-      const pwKey=role==='A'?'password_admin':'password_reporter';
-      const {data,error}=await db.from('settings').select('value').eq('key',pwKey).maybeSingle();
-      if (error||!data){ loginError.value='無法取得密碼，請聯絡管理者'; loginLoading.value=false; return; }
-      const storedPw=typeof data.value==='string'?data.value:String(data.value);
-      if (loginPw.value===storedPw){
-        currentRole.value=role; loginLoading.value=false;
-        showAdminModal.value=false; showReporterPw.value=false;
-        loginPw.value=''; loginError.value='';
-        tab.value=role==='A'?'setup':'report';
-        loadAll();
-      } else { loginError.value='密碼錯誤，請再試一次'; loginLoading.value=false; }
+
+      const email = role==='A'
+        ? loginUser.value.trim() + DOMAIN
+        : REPORTER_EMAIL;
+
+      const { data, error } = await db.auth.signInWithPassword({ email, password: loginPw.value });
+
+      if (error){
+        loginError.value = error.message.includes('Invalid') ? '帳號或密碼錯誤' : error.message;
+        loginLoading.value=false; return;
+      }
+
+      // 根據 email 判斷身份
+      const userEmail = data.user.email;
+      const isAdmin = userEmail !== REPORTER_EMAIL;
+      currentRole.value = isAdmin ? 'A' : 'B';
+      loginLoading.value=false;
+      showAdminModal.value=false; showReporterPw.value=false;
+      loginPw.value=''; loginUser.value=''; loginError.value='';
+      tab.value = isAdmin ? 'setup' : 'report';
+      loadAll();
     }
-    function logout(){ currentRole.value=null; loginPw.value=''; loginError.value=''; showReporterPw.value=false; showAdminModal.value=false; }
+
+    async function logout(){
+      await db.auth.signOut();
+      currentRole.value=null; loginPw.value=''; loginUser.value='';
+      loginError.value=''; showReporterPw.value=false; showAdminModal.value=false;
+    }
+
+    // 頁面載入時檢查是否已登入
+    async function checkSession(){
+      const { data } = await db.auth.getSession();
+      if (data.session){
+        const email = data.session.user.email;
+        const isAdmin = email !== REPORTER_EMAIL;
+        currentRole.value = isAdmin ? 'A' : 'B';
+        tab.value = isAdmin ? 'setup' : 'report';
+        loadAll();
+      }
+    }
+    checkSession();
 
     const tab=ref('setup'),globalMsg=ref(null),months=MONTHS;
     function showMsg(text,type='ok'){ globalMsg.value={text,type}; setTimeout(()=>globalMsg.value=null,3500); }
@@ -997,16 +1067,16 @@ createApp({
 
     // ── History ──
     const histYear=ref(''),histMonth=ref(''),histFilterTeam=ref(''),histFilterGroup=ref('');
-    const histReports=ref([]),histLoading=ref(false);
+    const histReports=ref([]),histLoading=ref(false),histLoaded=ref(false);
     async function loadHistory(){
-      histLoading.value=true;
+      histLoading.value=true; histLoaded.value=false;
       let q=db.from('reports').select('*');
       if (histYear.value) q=q.eq('year',parseInt(histYear.value));
       if (histMonth.value) q=q.eq('month',histMonth.value);
       const {data}=await q; let res=data||[];
       if (histFilterTeam.value) res=res.filter(r=>r.team_name===teamName(histFilterTeam.value));
       if (histFilterGroup.value) res=res.filter(r=>r.group_name===groupName(histFilterGroup.value));
-      histReports.value=sortReports(res); histLoading.value=false;
+      histReports.value=sortReports(res); histLoading.value=false; histLoaded.value=true;
     }
     function exportHistory(){
       if (histReports.value.length===0) return;
@@ -1029,7 +1099,7 @@ createApp({
     }
 
     return {
-      currentRole,loginPw,loginError,loginLoading,
+      currentRole,loginPw,loginUser,loginError,loginLoading,
       showAdminModal,showReporterPw,closeAdminModal,doLogin,logout,
       tab,globalMsg,months,
       teams,groups,titles,members,fields,
@@ -1048,7 +1118,7 @@ createApp({
       viewReports,viewLoading,viewLoaded,filteredViewReports,unreportedList,
       loadViewData,exportView,
       histYear,histMonth,histFilterTeam,histFilterGroup,
-      histReports,histLoading,loadHistory,exportHistory,
+      histReports,histLoading,histLoaded,loadHistory,exportHistory,
     };
   }
 }).mount('#app');
